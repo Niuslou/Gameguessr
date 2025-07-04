@@ -5,13 +5,13 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput, // Hinzugefügt für Ladeanzeige
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { fetchTeamById, fetchTeamMatches } from "../../api/footballApi";
 import { getTip, saveTip } from "../../lib/storage";
 
@@ -145,7 +145,12 @@ export default function TeamDetails() {
         .slice(0, 5); // Nächste 5
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
+        <KeyboardAwareScrollView
+            contentContainerStyle={styles.container}
+            enableOnAndroid={true}
+            extraScrollHeight={200}
+            keyboardShouldPersistTaps="handled"
+        >
             <Text style={styles.title}>{team.name}</Text>
 
             {/* Letzte 5 Spiele */}
@@ -181,7 +186,11 @@ export default function TeamDetails() {
 
 
                         return (
-                            <View key={match.id} style={styles.tipMatchCard}>
+                            <View
+                                key={match.id}
+                                style={styles.tipMatchCard}
+                                collapsable={false}
+                            >
                                 <Text style={styles.upcomingMatchTime}>
                                     {new Date(match.utcDate).toLocaleDateString()} –{" "}
                                     {new Date(match.utcDate).toLocaleTimeString([], {
@@ -230,7 +239,7 @@ export default function TeamDetails() {
                     <Text style={styles.noDataText}>Keine bevorstehenden Spiele gefunden.</Text>
                 )}
             </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
     );
 }
 
