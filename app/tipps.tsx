@@ -1,18 +1,20 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
+    Button,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from "react-native";
-import { fetchMatchById } from "../api/footballApi";
+import { clearAllTips, getAllTips } from "../lib/storage";
 
 
 interface Tip {
-  home: string;
-  away: string;
+  homeGoals: number;
+  awayGoals: number;
+  match?: any; // optional gespeichertes Match
 }
 
 interface TipWithMatch {
@@ -25,33 +27,24 @@ export default function TippOverview() {
   const [tipps, setTipps] = useState<TipWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadTips();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadTips();
+    }, [])
+  );
 
   const loadTips = async () => {
     setLoading(true);
     try {
-      const allKeys = await AsyncStorage.getAllKeys();
-      const tipKeys = allKeys.filter((key) => key.startsWith("tip_"));
-
-      const entries = await Promise.all(
-        tipKeys.map(async (key) => {
-          const value = await AsyncStorage.getItem(key);
-          const matchId = key.replace("tip_", "");
-          const match = await fetchMatchById(matchId);
-          return {
-            id: matchId,
-            tip: value ? JSON.parse(value) : null,
-            match,
-          };
-        })
+      const allTips = await getAllTips();
+      console.log('DEBUG Tippübersicht: allTips', allTips);
+      const entries = Object.entries(allTips).map(([matchId, tip]) => {
+        return tip.match ? { id: matchId, tip, match: tip.match } : null;
+      });
+      const filtered = entries.filter((entry): entry is TipWithMatch => entry !== null && entry !== undefined && entry.match);
+      const sorted = filtered.sort((a, b) =>
+        new Date(b.match.utcDate).getTime() - new Date(a.match.utcDate).getTime()
       );
-
-      const sorted = entries.sort((a, b) =>
-        new Date(a.match.utcDate).getTime() - new Date(b.match.utcDate).getTime()
-      );
-
       setTipps(sorted);
     } catch (err) {
       console.error("Fehler beim Laden der Tipps", err);
@@ -60,6 +53,22 @@ export default function TippOverview() {
     }
   };
 
+  const handleClear = async () => {
+    await clearAllTips();
+    setTipps([]);
+  };
+
+  // Statistik berechnen
+  const total = tipps.length;
+  const correct = tipps.filter(({ match, tip }) =>
+    match.status === "FINISHED" &&
+    tip.homeGoals === match.score.fullTime.home &&
+    tip.awayGoals === match.score.fullTime.away
+  ).length;
+  const finished = tipps.filter(({ match }) => match.status === "FINISHED").length;
+  const wrong = finished - correct;
+  const open = total - finished;
+
   if (loading) {
     return <ActivityIndicator size="large" style={{ marginTop: 100 }} />;
   }
@@ -67,6 +76,14 @@ export default function TippOverview() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Deine Tipps</Text>
+      <View style={styles.statsBox}>
+        <Text style={styles.statsTitle}>Statistik</Text>
+        <Text>Getippte Spiele: {total}</Text>
+        <Text>Richtig: {correct}</Text>
+        <Text>Falsch: {wrong}</Text>
+        <Text>Offen: {open}</Text>
+      </View>
+      <Button title="Alle Tipps löschen" onPress={handleClear} />
       {tipps.length === 0 ? (
         <Text>Keine Tipps gefunden.</Text>
       ) : (
@@ -75,8 +92,8 @@ export default function TippOverview() {
           const finished = match.status === "FINISHED";
           const correct =
             finished &&
-            tip.home === String(match.score.fullTime.home) &&
-            tip.away === String(match.score.fullTime.away);
+            tip.homeGoals === match.score.fullTime.home &&
+            tip.awayGoals === match.score.fullTime.away;
 
           return (
             <View key={id} style={styles.tipBox}>
@@ -85,7 +102,7 @@ export default function TippOverview() {
               </Text>
               <Text style={styles.date}>{date.toLocaleString()}</Text>
               <Text style={styles.tip}>
-                Dein Tipp: {tip.home} : {tip.away}
+                Dein Tipp: {tip.homeGoals} : {tip.awayGoals}
               </Text>
               {finished ? (
                 <Text style={styles.result}>
@@ -114,6 +131,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
+  },
+  statsBox: {
+    backgroundColor: "#f9f9f9",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  statsTitle: {
+    fontWeight: "bold",
+    marginBottom: 8,
   },
   tipBox: {
     marginBottom: 16,

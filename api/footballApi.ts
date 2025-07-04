@@ -64,3 +64,17 @@ export async function fetchUpcomingBundesligaMatches(teamId: number) {
     )
     .slice(0, 5);
 }
+
+// Holt ein einzelnes Spiel anhand der Match-ID
+export async function fetchMatchById(matchId: number | string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/matches/${matchId}`, {
+      headers,
+    });
+    const data = await response.json();
+    return data.match;
+  } catch (error) {
+    console.error('Fehler beim Laden des Spiels:', error);
+    return null;
+  }
+}

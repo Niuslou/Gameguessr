@@ -18,7 +18,7 @@ export default function TeamDetails() {
   const { id } = useLocalSearchParams();
   const [team, setTeam] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
-  const [tips, setTips] = useState<Record<string, { home: string; away: string }>>({});
+  const [tips, setTips] = useState<Record<string, { homeGoals: number; awayGoals: number }>>({});
   const [inputValues, setInputValues] = useState<Record<string, { home: string; away: string }>>({});
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function TeamDetails() {
 
   useEffect(() => {
     const loadTips = async () => {
-      const result: Record<string, { home: string; away: string }> = {};
+      const result: Record<string, { homeGoals: number; awayGoals: number }> = {};
       for (const match of matches) {
         const saved = await getTip(match.id.toString());
         if (saved) {
@@ -59,9 +59,20 @@ export default function TeamDetails() {
       return;
     }
 
-    await saveTip(matchId, input);
-    setTips((prev) => ({ ...prev, [matchId]: input }));
-    Alert.alert("Gespeichert", "Dein Tipp wurde gespeichert.");
+    // Das Match-Objekt zu dieser ID finden
+    const match = matches.find((m) => m.id.toString() === matchId);
+    await saveTip(matchId, Number(input.home), Number(input.away), match);
+
+    if (!match) {
+      Alert.alert("Warnung", "Achtung: Für diese Match-ID wurde kein Spiel gefunden!");
+    } else {
+      Alert.alert("Gespeichert", "Dein Tipp wurde gespeichert.");
+    }
+
+    setTips((prev) => ({
+      ...prev,
+      [matchId]: { homeGoals: Number(input.home), awayGoals: Number(input.away) }
+    }));
   };
 
   if (!team) return <Text style={styles.loading}>Lade Teamdaten...</Text>;
@@ -129,7 +140,7 @@ export default function TeamDetails() {
               <Button title="Tipp speichern" onPress={() => submitTip(matchId)} />
               {savedTip && (
                 <Text style={styles.savedTip}>
-                  Dein Tipp: {savedTip.home} : {savedTip.away}
+                  Dein Tipp: {savedTip.homeGoals} : {savedTip.awayGoals}
                 </Text>
               )}
             </View>
