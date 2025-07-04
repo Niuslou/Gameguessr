@@ -1,5 +1,6 @@
 // app/team/[id].tsx
 
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -14,7 +15,6 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { fetchTeamById, fetchTeamMatches } from "../../api/footballApi";
 import { getTip, saveTip } from "../../lib/storage";
-import { useFocusEffect } from "@react-navigation/native";
 
 // Zeigt die Detailansicht eines Teams, vergangene und kommende Spiele sowie Tippfunktion
 export default function TeamDetails() {
