@@ -1,3 +1,4 @@
+import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
 import {
@@ -27,6 +28,7 @@ export default function TippOverview() {
   const [tipps, setTipps] = useState<TipWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(5);
+  const [selectedTeam, setSelectedTeam] = useState<string>('ALL');
 
   useFocusEffect(
     useCallback(() => {
@@ -39,13 +41,22 @@ export default function TippOverview() {
     try {
       const allTips = await getAllTips();
       console.log('DEBUG Tippübersicht: allTips', allTips);
+      // Mapping: Immer ein Objekt mit id und tip, match kann fehlen
       const entries = Object.entries(allTips).map(([matchId, tip]) => {
-        return tip.match ? { id: matchId, tip, match: tip.match } : null;
+        // Robust: match kann fehlen
+        const match = (tip as any).match ? (tip as any).match : null;
+        return { id: matchId, tip, match };
       });
-      const filtered = entries.filter((entry): entry is TipWithMatch => entry !== null && entry !== undefined && entry.match);
-      const sorted = filtered.sort((a, b) =>
-        new Date(b.match.utcDate).getTime() - new Date(a.match.utcDate).getTime()
-      );
+      // Sortierung: Zuerst alle mit gültigem Datum (neueste oben), dann die ohne Datum
+      const sorted = entries.sort((a, b) => {
+        const dateA = a.match && a.match.utcDate ? new Date(a.match.utcDate).getTime() : 0;
+        const dateB = b.match && b.match.utcDate ? new Date(b.match.utcDate).getTime() : 0;
+        // Tipps ohne Datum kommen nach hinten
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateB - dateA;
+      });
       setTipps(sorted);
     } catch (err) {
       console.error("Fehler beim Laden der Tipps", err);
@@ -58,6 +69,24 @@ export default function TippOverview() {
     await clearAllTips();
     setTipps([]);
   };
+
+  // Teams aus Tipps extrahieren
+  const allTeams = Array.from(
+    new Set(
+      tipps.flatMap(({ match }) =>
+        match ? [match.homeTeam?.name, match.awayTeam?.name] : []
+      )
+    )
+  )
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  // Tipps nach Team filtern
+  const filteredTipps = selectedTeam === 'ALL'
+    ? tipps
+    : tipps.filter(({ match }) =>
+        match && (match.homeTeam?.name === selectedTeam || match.awayTeam?.name === selectedTeam)
+      );
 
   // Statistik berechnen
   const total = tipps.length;
@@ -93,20 +122,52 @@ export default function TippOverview() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Deine Tipps</Text>
+      {/* Dropdown für Team-Auswahl */}
+      <View style={{ marginBottom: 16 }}>
+        <Picker
+          selectedValue={selectedTeam}
+          onValueChange={setSelectedTeam}
+          style={{ backgroundColor: '#f2f2f2', borderRadius: 8 }}
+        >
+          <Picker.Item label="Alle Teams" value="ALL" />
+          {allTeams.map((team) => (
+            <Picker.Item key={team} label={team} value={team} />
+          ))}
+        </Picker>
+      </View>
+      {/* Statistik und Tipps-Liste wie gehabt, aber mit filteredTipps */}
       <View style={styles.statsBox}>
         <Text style={styles.statsTitle}>Statistik</Text>
-        <Text>Getippte Spiele: {total}</Text>
-        <Text>Exakt richtig: {exact}</Text>
-        <Text>Sieger richtig: {tendency}</Text>
-        <Text>Falsch: {wrong}</Text>
-        <Text>Offen: {open}</Text>
+        <Text>Getippte Spiele: {filteredTipps.length}</Text>
+        <Text>Exakt richtig: {filteredTipps.filter(({ match, tip }) =>
+          match && match.status === "FINISHED" &&
+          tip.homeGoals === match.score.fullTime.home &&
+          tip.awayGoals === match.score.fullTime.away
+        ).length}</Text>
+        <Text>Sieger richtig: {filteredTipps.filter(({ match, tip }) => {
+          if (!match || match.status !== "FINISHED") return false;
+          const realDiff = match.score.fullTime.home - match.score.fullTime.away;
+          const tipDiff = tip.homeGoals - tip.awayGoals;
+          if (tip.homeGoals === match.score.fullTime.home && tip.awayGoals === match.score.fullTime.away) return false;
+          if (realDiff === 0 && tipDiff === 0) return true;
+          if (realDiff > 0 && tipDiff > 0) return true;
+          if (realDiff < 0 && tipDiff < 0) return true;
+          return false;
+        }).length}</Text>
+        <Text>Falsch: {filteredTipps.filter(({ match }) => match && match.status === "FINISHED").length - filteredTipps.filter(({ match, tip }) =>
+          match && match.status === "FINISHED" &&
+          tip.homeGoals === match.score.fullTime.home &&
+          tip.awayGoals === match.score.fullTime.away
+        ).length}</Text>
+        <Text>Offen: {filteredTipps.length - filteredTipps.filter(({ match }) => match && match.status === "FINISHED").length}</Text>
       </View>
       <Button title="Alle Tipps löschen" onPress={handleClear} />
-      {tipps.length === 0 ? (
+      {filteredTipps.length === 0 ? (
         <Text>Keine Tipps gefunden.</Text>
       ) : (
         <>
-          {tipps.slice(0, visibleCount).map(({ id, tip, match }) => {
+          {filteredTipps.slice(0, visibleCount).map(({ id, tip, match }) => {
+            if (!match) return null;
             const date = new Date(match.utcDate);
             const finished = match.status === "FINISHED";
             const correct =
@@ -135,7 +196,7 @@ export default function TippOverview() {
               </View>
             );
           })}
-          {visibleCount < tipps.length && (
+          {visibleCount < filteredTipps.length && (
             <Button
               title="Mehr anzeigen ▼"
               onPress={() => setVisibleCount((c) => c + 5)}
