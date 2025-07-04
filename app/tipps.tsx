@@ -102,31 +102,39 @@ export default function TippOverview() {
     const open = total - finished;
 
     const correctTotal = exact + tendency;
-    const chartData = [
-        {
-            name: 'Richtig getippt',
+
+    // Wir stellen sicher, dass wir nur Datenpunkte hinzufügen, die auch einen Wert haben,
+    // um "0%" Einträge in der Legende zu vermeiden, wenn keine Tipps dieser Kategorie vorliegen.
+    const chartData = [];
+    if (correctTotal > 0) {
+        chartData.push({
+            name: 'Richtig', // Kürzerer Name für das Diagramm
             population: correctTotal,
             color: '#43a047',
             legendFontColor: '#7F7F7F',
             legendFontSize: 15
-        },
-        {
-            name: 'Falsch getippt',
+        });
+    }
+    if (wrong > 0) {
+        chartData.push({
+            name: 'Falsch', // Kürzerer Name für das Diagramm
             population: wrong,
             color: '#d32f2f',
             legendFontColor: '#7F7F7F',
             legendFontSize: 15
-        },
-        {
-            // ANPASSUNG HIER: Von 'Noch nicht gespielt' zu 'Offen'
+        });
+    }
+    if (open > 0) {
+        chartData.push({
             name: 'Offen',
             population: open,
             color: '#757575',
             legendFontColor: '#7F7F7F',
             legendFontSize: 15
-        },
-    ];
+        });
+    }
 
+    // Konfiguration für das Kreisdiagramm
     const chartConfig = {
         backgroundGradientFrom: "#fff",
         backgroundGradientFromOpacity: 0,
@@ -135,7 +143,16 @@ export default function TippOverview() {
         color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
         strokeWidth: 2,
         barPercentage: 0.5,
-        useShadowColorFromDataset: false
+        useShadowColorFromDataset: false,
+        // NEU: Diese Funktion formatiert die Label-Werte im Diagramm
+        // Wenn `absolute` entfernt wird, zeigt `fromZero` (Standard) Prozente an.
+        // `value` ist hier die Bevölkerung (Anzahl der Tipps), `total` ist die Gesamtanzahl der Tipps im Diagramm
+        formatYLabel: (value, index) => {
+            const totalTipsInChart = chartData.reduce((sum, d) => sum + d.population, 0);
+            if (totalTipsInChart === 0) return "0%"; // Vermeide Division durch Null
+            const percentage = (value / totalTipsInChart) * 100;
+            return `${percentage.toFixed(0)}%`; // Zeigt ganze Prozentsätze an
+        }
     };
 
 
@@ -168,6 +185,7 @@ export default function TippOverview() {
                 <Text style={styles.statsText}>Offen: <Text style={[styles.statsValue, styles.statsOpen]}>{open} ⏳</Text></Text>
             </View>
 
+            {/* Diagramm nur anzeigen, wenn Tipps vorhanden sind */}
             {total > 0 && (
                 <View style={styles.chartContainer}>
                     <Text style={styles.chartTitle}>Verteilung deiner Tipps</Text>
@@ -178,8 +196,9 @@ export default function TippOverview() {
                         chartConfig={chartConfig}
                         accessor={"population"}
                         backgroundColor={"transparent"}
-                        paddingLeft={"25"} // ANPASSUNG HIER: Mehr Platz für die Legende
-                        absolute
+                        paddingLeft={"25"}
+                        // WICHTIG: `absolute` entfernen, damit `formatYLabel` greift
+                        // absolute 
                     />
                 </View>
             )}
