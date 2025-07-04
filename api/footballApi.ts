@@ -1,3 +1,5 @@
+// api/footballApi.ts
+
 const API_BASE_URL = 'https://api.football-data.org/v4';
 const API_TOKEN = 'd08839c0ce894782833a7e7fc208db54';
 
@@ -5,6 +7,7 @@ const headers = {
   'X-Auth-Token': API_TOKEN,
 };
 
+// Holt alle Bundesliga-Teams
 export async function fetchBundesligaTeams() {
   try {
     const response = await fetch(`${API_BASE_URL}/competitions/BL1/teams`, {
@@ -18,7 +21,8 @@ export async function fetchBundesligaTeams() {
   }
 }
 
-export async function fetchTeamById(teamId: number) {
+// Holt Detaildaten für ein bestimmtes Team
+export async function fetchTeamById(teamId: number | string) {
   try {
     const response = await fetch(`${API_BASE_URL}/teams/${teamId}`, {
       headers,
@@ -31,7 +35,8 @@ export async function fetchTeamById(teamId: number) {
   }
 }
 
-export async function fetchTeamMatches(teamId: number) {
+// Holt alle Spiele eines Teams
+export async function fetchTeamMatches(teamId: number | string) {
   try {
     const response = await fetch(`${API_BASE_URL}/teams/${teamId}/matches`, {
       headers,
@@ -44,6 +49,7 @@ export async function fetchTeamMatches(teamId: number) {
   }
 }
 
+// Holt die nächsten 5 Bundesliga-Spiele eines Teams
 export async function fetchUpcomingBundesligaMatches(teamId: number) {
   const matches = await fetchTeamMatches(teamId);
 

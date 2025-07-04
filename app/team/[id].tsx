@@ -1,3 +1,5 @@
+// app/team/[id].tsx
+
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -9,20 +11,15 @@ import {
   TextInput,
   View,
 } from "react-native";
-import {
-  fetchTeamById,
-  fetchTeamMatches,
-} from "../../lib/api/footballApi";
-import {
-  getTip,
-  storeTip,
-} from "../../lib/storage/tipStorage";
+import { fetchTeamById, fetchTeamMatches } from "../../api/footballApi";
+import { getTip, saveTip } from "../../lib/storage";
 
 export default function TeamDetails() {
   const { id } = useLocalSearchParams();
   const [team, setTeam] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [tips, setTips] = useState<Record<string, { home: string; away: string }>>({});
+  const [inputValues, setInputValues] = useState<Record<string, { home: string; away: string }>>({});
 
   useEffect(() => {
     if (id) {
@@ -31,21 +28,43 @@ export default function TeamDetails() {
     }
   }, [id]);
 
-  const loadTips = async () => {
-    if (!matches || matches.length === 0) return;
-    const tipsMap: Record<string, { home: string; away: string }> = {};
-    for (const match of matches) {
-      const tip = await getTip(match.id.toString());
-      if (tip) {
-        tipsMap[match.id] = tip;
-      }
-    }
-    setTips(tipsMap);
-  };
-
   useEffect(() => {
+    const loadTips = async () => {
+      const result: Record<string, { home: string; away: string }> = {};
+      for (const match of matches) {
+        const saved = await getTip(match.id.toString());
+        if (saved) {
+          result[match.id.toString()] = saved;
+        }
+      }
+      setTips(result);
+    };
     loadTips();
   }, [matches]);
+
+  const handleTipChange = (matchId: string, teamType: "home" | "away", value: string) => {
+    setInputValues((prev) => ({
+      ...prev,
+      [matchId]: {
+        ...prev[matchId],
+        [teamType]: value,
+      },
+    }));
+  };
+
+  const submitTip = async (matchId: string) => {
+    const input = inputValues[matchId];
+    if (!input || input.home === "" || input.away === "") {
+      Alert.alert("Fehler", "Bitte gib beide Tore ein.");
+      return;
+    }
+
+    await saveTip(matchId, input);
+    setTips((prev) => ({ ...prev, [matchId]: input }));
+    Alert.alert("Gespeichert", "Dein Tipp wurde gespeichert.");
+  };
+
+  if (!team) return <Text style={styles.loading}>Lade Teamdaten...</Text>;
 
   const now = new Date();
 
@@ -58,32 +77,6 @@ export default function TeamDetails() {
     .filter((m) => new Date(m.utcDate) >= now)
     .slice(0, 5);
 
-  const handleTipChange = (
-    matchId: string,
-    team: "home" | "away",
-    value: string
-  ) => {
-    setTips((prev) => ({
-      ...prev,
-      [matchId]: {
-        ...prev[matchId],
-        [team]: value,
-      },
-    }));
-  };
-
-  const saveTip = async (matchId: string) => {
-    const tip = tips[matchId];
-    if (!tip || tip.home === "" || tip.away === "") {
-      Alert.alert("Fehler", "Bitte beide Tore eingeben.");
-      return;
-    }
-    await storeTip(matchId, tip);
-    Alert.alert("Gespeichert", "Tipp wurde gespeichert!");
-  };
-
-  if (!team) return <Text style={styles.loading}>Lade Teamdaten...</Text>;
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{team.name}</Text>
@@ -92,55 +85,53 @@ export default function TeamDetails() {
       {pastMatches.length > 0 ? (
         pastMatches.map((match) => (
           <Text key={match.id} style={styles.matchItem}>
-            {match.homeTeam.name} {match.score.fullTime.home} :{" "}
-            {match.score.fullTime.away} {match.awayTeam.name}
+            {match.homeTeam.name} {match.score.fullTime.home} : {match.score.fullTime.away} {match.awayTeam.name}
           </Text>
         ))
       ) : (
         <Text>Keine vergangenen Spiele gefunden.</Text>
       )}
 
-      <Text style={styles.sectionTitle}>Nächste 5 Spiele</Text>
+      <Text style={styles.sectionTitle}>Nächste 5 Spiele (mit Tippfunktion)</Text>
       {upcomingMatches.length > 0 ? (
         upcomingMatches.map((match) => {
-          const tip = tips[match.id] || { home: "", away: "" };
+          const matchId = match.id.toString();
+          const savedTip = tips[matchId];
+
           return (
-            <View key={match.id} style={styles.matchContainer}>
+            <View key={match.id} style={styles.tipContainer}>
               <Text style={styles.matchItem}>
                 {match.homeTeam.name} vs. {match.awayTeam.name}
-              </Text>
-              <Text style={styles.matchDate}>
+                {"\n"}
                 {new Date(match.utcDate).toLocaleDateString()} –{" "}
                 {new Date(match.utcDate).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </Text>
-              <View style={styles.tipRow}>
+              <View style={styles.inputRow}>
                 <TextInput
-                  style={styles.tipInput}
-                  keyboardType="number-pad"
                   placeholder="Heim"
-                  value={tip.home}
-                  onChangeText={(value) =>
-                    handleTipChange(match.id.toString(), "home", value)
-                  }
+                  keyboardType="numeric"
+                  value={inputValues[matchId]?.home || ""}
+                  onChangeText={(text) => handleTipChange(matchId, "home", text)}
+                  style={styles.input}
                 />
-                <Text style={{ marginHorizontal: 5 }}>:</Text>
+                <Text style={{ marginHorizontal: 4 }}>:</Text>
                 <TextInput
-                  style={styles.tipInput}
-                  keyboardType="number-pad"
                   placeholder="Gast"
-                  value={tip.away}
-                  onChangeText={(value) =>
-                    handleTipChange(match.id.toString(), "away", value)
-                  }
-                />
-                <Button
-                  title="Tipp speichern"
-                  onPress={() => saveTip(match.id.toString())}
+                  keyboardType="numeric"
+                  value={inputValues[matchId]?.away || ""}
+                  onChangeText={(text) => handleTipChange(matchId, "away", text)}
+                  style={styles.input}
                 />
               </View>
+              <Button title="Tipp speichern" onPress={() => submitTip(matchId)} />
+              {savedTip && (
+                <Text style={styles.savedTip}>
+                  Dein Tipp: {savedTip.home} : {savedTip.away}
+                </Text>
+              )}
             </View>
           );
         })
@@ -154,38 +145,23 @@ export default function TeamDetails() {
 const styles = StyleSheet.create({
   container: { padding: 16, backgroundColor: "#fff" },
   loading: { marginTop: 50, textAlign: "center" },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  matchItem: { fontSize: 14 },
-  matchDate: { marginBottom: 6, color: "#555" },
-  matchContainer: {
-    marginBottom: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-  },
-  tipRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-  tipInput: {
+  title: { fontSize: 26, fontWeight: "bold", marginBottom: 16, textAlign: "center" },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginTop: 20, marginBottom: 10 },
+  matchItem: { marginBottom: 8, fontSize: 14 },
+  tipContainer: { marginBottom: 20 },
+  inputRow: { flexDirection: "row", alignItems: "center", marginVertical: 8 },
+  input: {
     borderWidth: 1,
     borderColor: "#ccc",
     padding: 6,
     width: 50,
     textAlign: "center",
     borderRadius: 4,
+  },
+  savedTip: {
+    marginTop: 4,
+    fontStyle: "italic",
+    fontSize: 13,
+    color: "green",
   },
 });
