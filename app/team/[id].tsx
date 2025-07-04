@@ -14,6 +14,7 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { fetchTeamById, fetchTeamMatches } from "../../api/footballApi";
 import { getTip, saveTip } from "../../lib/storage";
+import { useFocusEffect } from "@react-navigation/native";
 
 // Zeigt die Detailansicht eines Teams, vergangene und kommende Spiele sowie Tippfunktion
 export default function TeamDetails() {
@@ -57,6 +58,13 @@ export default function TeamDetails() {
     useEffect(() => {
         loadData();
     }, [loadData]); // Abhängigkeit von loadData
+
+    // Tipps und Spieldaten neu laden, wenn der Screen in den Fokus kommt (z.B. nach Tipp-Löschung)
+    useFocusEffect(
+        React.useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
 
     const handleTipChange = (matchId: string, teamType: "home" | "away", value: string) => {
         setInputValues((prev) => ({
