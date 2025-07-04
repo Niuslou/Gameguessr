@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text } from "react-native";
 
+// Zeigt eine einzelne Teamkarte an und navigiert beim Klick zur Team-Detailseite
 export default function TeamCard({ team }: { team: any }) {
   const router = useRouter();
 

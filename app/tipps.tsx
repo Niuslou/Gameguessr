@@ -29,6 +29,7 @@ interface TipWithMatch {
 
 const screenWidth = Dimensions.get("window").width;
 
+// Übersicht aller Tipps und Statistiken, inkl. Filterung und Diagramm
 export default function TippOverview() {
     const [tipps, setTipps] = useState<TipWithMatch[]>([]);
     const [loading, setLoading] = useState(true);

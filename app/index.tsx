@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { fetchBundesligaTeams } from "../api/footballApi";
 
+// Startseite: Zeigt alle Bundesliga-Teams als Liste an
 export default function Home() {
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(true);

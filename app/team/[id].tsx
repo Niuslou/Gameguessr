@@ -15,6 +15,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { fetchTeamById, fetchTeamMatches } from "../../api/footballApi";
 import { getTip, saveTip } from "../../lib/storage";
 
+// Zeigt die Detailansicht eines Teams, vergangene und kommende Spiele sowie Tippfunktion
 export default function TeamDetails() {
     const { id } = useLocalSearchParams();
     const [team, setTeam] = useState<any>(null);

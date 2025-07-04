@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'matchTips';
 
+// Speichert einen Tipp für ein bestimmtes Spiel in AsyncStorage
 export async function saveTip(matchId: string, homeGoals: number, awayGoals: number, matchData?: any) {
   try {
     console.log('Speichere Tipp:', matchId, homeGoals, awayGoals, matchData);
@@ -16,6 +17,7 @@ export async function saveTip(matchId: string, homeGoals: number, awayGoals: num
   }
 }
 
+// Lädt einen gespeicherten Tipp für ein bestimmtes Spiel
 export async function getTip(matchId: string): Promise<{ homeGoals: number; awayGoals: number } | null> {
   try {
     const existing = await AsyncStorage.getItem(STORAGE_KEY);
@@ -30,6 +32,7 @@ export async function getTip(matchId: string): Promise<{ homeGoals: number; away
   }
 }
 
+// Lädt alle gespeicherten Tipps als Objekt
 export async function getAllTips(): Promise<{ [matchId: string]: { homeGoals: number; awayGoals: number } }> {
   try {
     const existing = await AsyncStorage.getItem(STORAGE_KEY);
@@ -42,6 +45,7 @@ export async function getAllTips(): Promise<{ [matchId: string]: { homeGoals: nu
   }
 }
 
+// Löscht alle gespeicherten Tipps
 export async function clearAllTips() {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
