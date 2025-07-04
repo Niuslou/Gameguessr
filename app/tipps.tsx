@@ -26,6 +26,7 @@ interface TipWithMatch {
 export default function TippOverview() {
   const [tipps, setTipps] = useState<TipWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,14 +61,30 @@ export default function TippOverview() {
 
   // Statistik berechnen
   const total = tipps.length;
-  const correct = tipps.filter(({ match, tip }) =>
+  const exact = tipps.filter(({ match, tip }) =>
     match.status === "FINISHED" &&
     tip.homeGoals === match.score.fullTime.home &&
     tip.awayGoals === match.score.fullTime.away
   ).length;
   const finished = tipps.filter(({ match }) => match.status === "FINISHED").length;
-  const wrong = finished - correct;
+  const wrong = finished - exact;
   const open = total - finished;
+
+  // Tendenz richtig: Gewinner (oder Unentschieden) stimmt, aber nicht das exakte Ergebnis
+  const tendency = tipps.filter(({ match, tip }) => {
+    if (match.status !== "FINISHED") return false;
+    const realDiff = match.score.fullTime.home - match.score.fullTime.away;
+    const tipDiff = tip.homeGoals - tip.awayGoals;
+    // Exakt richtig zählt nicht als Tendenz
+    if (tip.homeGoals === match.score.fullTime.home && tip.awayGoals === match.score.fullTime.away) return false;
+    // Beide Unentschieden
+    if (realDiff === 0 && tipDiff === 0) return true;
+    // Beide Heimsieg
+    if (realDiff > 0 && tipDiff > 0) return true;
+    // Beide Auswärtssieg
+    if (realDiff < 0 && tipDiff < 0) return true;
+    return false;
+  }).length;
 
   if (loading) {
     return <ActivityIndicator size="large" style={{ marginTop: 100 }} />;
@@ -79,7 +96,8 @@ export default function TippOverview() {
       <View style={styles.statsBox}>
         <Text style={styles.statsTitle}>Statistik</Text>
         <Text>Getippte Spiele: {total}</Text>
-        <Text>Richtig: {correct}</Text>
+        <Text>Exakt richtig: {exact}</Text>
+        <Text>Sieger richtig: {tendency}</Text>
         <Text>Falsch: {wrong}</Text>
         <Text>Offen: {open}</Text>
       </View>
@@ -87,35 +105,43 @@ export default function TippOverview() {
       {tipps.length === 0 ? (
         <Text>Keine Tipps gefunden.</Text>
       ) : (
-        tipps.map(({ id, tip, match }) => {
-          const date = new Date(match.utcDate);
-          const finished = match.status === "FINISHED";
-          const correct =
-            finished &&
-            tip.homeGoals === match.score.fullTime.home &&
-            tip.awayGoals === match.score.fullTime.away;
+        <>
+          {tipps.slice(0, visibleCount).map(({ id, tip, match }) => {
+            const date = new Date(match.utcDate);
+            const finished = match.status === "FINISHED";
+            const correct =
+              finished &&
+              tip.homeGoals === match.score.fullTime.home &&
+              tip.awayGoals === match.score.fullTime.away;
 
-          return (
-            <View key={id} style={styles.tipBox}>
-              <Text style={styles.teams}>
-                {match.homeTeam.name} vs. {match.awayTeam.name}
-              </Text>
-              <Text style={styles.date}>{date.toLocaleString()}</Text>
-              <Text style={styles.tip}>
-                Dein Tipp: {tip.homeGoals} : {tip.awayGoals}
-              </Text>
-              {finished ? (
-                <Text style={styles.result}>
-                  Ergebnis: {match.score.fullTime.home} :{" "}
-                  {match.score.fullTime.away}{" "}
-                  {correct ? "✅" : "❌"}
+            return (
+              <View key={id} style={styles.tipBox}>
+                <Text style={styles.teams}>
+                  {match.homeTeam.name} vs. {match.awayTeam.name}
                 </Text>
-              ) : (
-                <Text style={{ color: "#888" }}>Spiel noch nicht gespielt</Text>
-              )}
-            </View>
-          );
-        })
+                <Text style={styles.date}>{date.toLocaleString()}</Text>
+                <Text style={styles.tip}>
+                  Dein Tipp: {tip.homeGoals} : {tip.awayGoals}
+                </Text>
+                {finished ? (
+                  <Text style={styles.result}>
+                    Ergebnis: {match.score.fullTime.home} :{" "}
+                    {match.score.fullTime.away}{" "}
+                    {correct ? "✅" : "❌"}
+                  </Text>
+                ) : (
+                  <Text style={{ color: "#888" }}>Spiel noch nicht gespielt</Text>
+                )}
+              </View>
+            );
+          })}
+          {visibleCount < tipps.length && (
+            <Button
+              title="Mehr anzeigen ▼"
+              onPress={() => setVisibleCount((c) => c + 5)}
+            />
+          )}
+        </>
       )}
     </ScrollView>
   );
